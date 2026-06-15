@@ -1,0 +1,83 @@
+name: library
+description: Library management with a loan approval workflow
+version: 1
+
+entities:
+  - name: Genre
+    description: Reference data for book genres
+    fields:
+      - { name: id,   type: integer, primaryKey: true, generated: true }
+      - { name: name, type: string,  required: true, length: 100 }
+
+  - name: Book
+    fields:
+      - { name: id,          type: integer, primaryKey: true, generated: true }
+      - { name: title,       type: string,  required: true, length: 200 }
+      - { name: summary,     type: text }
+      - { name: price,       type: decimal }
+      - { name: available,   type: boolean, defaultValue: "true" }
+      - { name: publishedOn, type: date }
+    relations:
+      - { name: genre, kind: manyToOne, to: Genre }                       # optional association
+
+  - name: Member
+    fields:
+      - { name: id,       type: integer,   primaryKey: true, generated: true }
+      - { name: name,     type: string,    required: true, length: 200 }
+      - { name: email,    type: string,    length: 200 }
+      - { name: joinedAt, type: timestamp }
+    relations:
+      - { name: loans, kind: oneToMany, to: Loan }                        # master's detail collection
+
+  - name: Loan
+    fields:
+      - { name: id,       type: integer, primaryKey: true, generated: true }
+      - { name: loanedOn, type: date,    required: true }
+      - { name: dueOn,    type: date }
+    relations:
+      - { name: member, kind: manyToOne, to: Member, composition: true }  # master-detail: Loan is a detail of Member
+      - { name: book,   kind: manyToOne, to: Book,   required: true }     # NOT NULL association
+
+processes:
+  - name: LoanApproval
+    steps:
+      - name: librarianReview
+        kind: userTask
+        args: { assignee: librarian, form: ApproveLoan }
+      - name: rareBook
+        kind: decision
+        args: { if: "bookPrice > 500", then: curatorReview, else: notifyMember }
+      - name: curatorReview
+        kind: userTask
+        args: { assignee: curator, form: ApproveLoan }
+      - name: notifyMember
+        kind: serviceTask
+        args: { call: "custom/notify-member.ts" }
+      - name: done
+        kind: end
+
+forms:
+  - name: ApproveLoan
+    forEntity: Loan
+    description: Approve or reject a loan request
+    fields: [loanedOn, dueOn]
+    actions: [approve, reject]
+
+reports:
+  - name: MembersWithLoansDue
+    source: Loan
+    description: Members with loans currently due
+    dimensions: [member.name, loanedOn, dueOn]
+    filter: "dueOn <= CURRENT_DATE"
+
+permissions:
+  - { role: Librarian, description: Library staff, can: [Book:read, Book:write, Loan:create] }
+  - { role: Curator,   description: Rare books curator, can: [Loan:approve] }
+
+seeds:
+  - name: genres
+    entity: Genre
+    rows:
+      - { id: 1, name: Fiction }
+      - { id: 2, name: Science }
+      - { id: 3, name: History }
