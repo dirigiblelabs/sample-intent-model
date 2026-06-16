@@ -40,6 +40,7 @@ entities:
 
 processes:
   - name: LoanApproval
+    trigger: { onCreate: Loan }   # creating a Loan starts this process (gen/events listener)
     steps:
       - name: librarianReview
         kind: userTask
