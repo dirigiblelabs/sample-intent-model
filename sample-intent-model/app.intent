@@ -54,8 +54,7 @@ processes:
         kind: userTask
         args: { assignee: curator, form: ApproveLoan }
       - name: notifyMember
-        kind: serviceTask
-        args: { call: "custom/notify-member.ts" }
+        kind: serviceTask   # no `call` -> a Java handler stub is scaffolded once at custom/NotifyMember.java
       - name: done
         kind: end
 
