@@ -4,6 +4,7 @@ version: 1
 
 entities:
   - name: Genre
+    kind: setting
     description: Reference data for book genres
     fields:
       - { name: id,   type: integer, primaryKey: true, generated: true }
