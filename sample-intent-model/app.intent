@@ -47,7 +47,9 @@ processes:
         args: { assignee: librarian, form: ApproveLoan }
       - name: rareBook
         kind: decision
-        args: { if: "bookPrice > 500", then: curatorReview, else: notifyMember }
+        # book.price is a relation.field path: the generated resolver loads the Loan's Book and
+        # exposes its price as a process variable just before this decision.
+        args: { if: "book.price > 500", then: curatorReview, else: notifyMember }
       - name: curatorReview
         kind: userTask
         args: { assignee: curator, form: ApproveLoan }
