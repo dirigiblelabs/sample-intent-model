@@ -18,6 +18,7 @@ entities:
       - { name: price,       type: decimal }
       - { name: available,   type: boolean, defaultValue: "true" }
       - { name: publishedOn, type: date }
+      - { name: loanCount,   type: integer }                              # maintained by the bookLoanCount roll-up
     relations:
       - { name: genre, kind: manyToOne, to: Genre }                       # optional association
 
@@ -84,3 +85,47 @@ seeds:
       - { id: 1, name: Fiction }
       - { id: 2, name: Science }
       - { id: 3, name: History }
+
+# --- Declarative glue: often-used integrations expressed as intent, generated as annotated client-Java
+#     against org.eclipse.dirigible.sdk.* (listeners, jobs, controllers) - no hand-written code needed. ---
+
+notifications:
+  # On every Loan update, email the desk. {member.name} is a one-hop relation.field: the generated
+  # listener loads the Loan's Member by FK and interpolates its name into the subject.
+  - name: loanUpdated
+    event: { onUpdate: Loan }
+    to: library-desk@example.com
+    subject: "Loan {id} for {member.name}, due {dueOn}"
+    body: "The loan changed."
+
+schedules:
+  # A daily @Scheduled job that finds overdue loans via a typed Criteria and emails one notice per row.
+  - name: overdueLoans
+    cron: "0 0 9 * * ?"
+    entity: Loan
+    where:
+      - { field: dueOn, op: lt, value: CURRENT_DATE }
+    notify:
+      to: library-desk@example.com
+      subject: "Overdue loan {id} for {member.name}"
+      body: "This loan is overdue."
+
+integrations:
+  # On Loan create, POST the new loan to a partner endpoint (URL pulled from configuration at runtime).
+  - name: pushLoanToPartner
+    event: { onCreate: Loan }
+    method: POST
+    url: "@config:PARTNER_URL"
+
+inbound:
+  # An inbound webhook controller that creates a Loan from a posted JSON body.
+  - name: ingestLoan
+    path: /ingest
+    create: Loan
+
+rollups:
+  # Maintain Book.loanCount as the number of Loans for each Book (recomputed on every Loan event).
+  - name: bookLoanCount
+    entity: Loan
+    via: book
+    field: loanCount
