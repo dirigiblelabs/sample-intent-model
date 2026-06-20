@@ -34,6 +34,7 @@ entities:
   - name: Loan
     fields:
       - { name: id,       type: integer, primaryKey: true, generated: true }
+      - { name: number,   type: string }                                    # human-friendly loan number; the process business key
       - { name: loanedOn, type: date,    required: true }
       - { name: dueOn,    type: date }
     relations:
@@ -42,7 +43,10 @@ entities:
 
 processes:
   - name: LoanApproval
-    trigger: { onCreate: Loan }   # creating a Loan starts this process (gen/events listener)
+    # Creating a Loan starts this process. Its BPM business key is the Loan.number field; the
+    # `timestamp` strategy mints a yyyyMMddHHmmss value into number when it is blank, so the process
+    # is correlatable by a human-friendly loan number rather than the surrogate id.
+    trigger: { onCreate: Loan, businessKey: number, businessKeyStrategy: timestamp }
     steps:
       - name: librarianReview
         kind: userTask
