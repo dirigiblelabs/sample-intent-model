@@ -90,13 +90,15 @@ seeds:
 #     against org.eclipse.dirigible.sdk.* (listeners, jobs, controllers) - no hand-written code needed. ---
 
 notifications:
-  # On every Loan update, email the desk. {member.name} is a one-hop relation.field: the generated
-  # listener loads the Loan's Member by FK and interpolates its name into the subject.
+  # On every Loan update, email the member. The recipient `member.email` is a one-hop relation.field
+  # (no braces - braces are only for {..} interpolation inside subject/body): the generated listener
+  # loads the Loan's Member by FK and uses its email as the recipient and its name in the subject.
+  # A literal address (e.g. library-desk@example.com) or a direct field would work here too.
   - name: loanUpdated
     event: { onUpdate: Loan }
-    to: library-desk@example.com
+    to: member.email
     subject: "Loan {id} for {member.name}, due {dueOn}"
-    body: "The loan changed."
+    body: "Your loan changed."
 
 schedules:
   # A daily @Scheduled job that finds overdue loans via a typed Criteria and emails one notice per row.
@@ -106,9 +108,9 @@ schedules:
     where:
       - { field: dueOn, op: lt, value: CURRENT_DATE }
     notify:
-      to: library-desk@example.com
+      to: member.email
       subject: "Overdue loan {id} for {member.name}"
-      body: "This loan is overdue."
+      body: "Your loan is overdue."
 
 integrations:
   # On Loan create, POST the new loan to a partner endpoint (URL pulled from configuration at runtime).
