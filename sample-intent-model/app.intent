@@ -64,7 +64,7 @@ forms:
   - name: ApproveLoan
     forEntity: Loan
     description: Approve or reject a loan request
-    fields: [loanedOn, dueOn]
+    fields: [loanedOn, dueOn, book.title, book.price]
     actions: [approve, reject]
 
 reports:
