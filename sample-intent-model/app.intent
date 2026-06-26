@@ -28,6 +28,7 @@ entities:
       - { name: name,     type: string,    required: true, length: 200 }
       - { name: email,    type: string,    length: 200 }
       - { name: joinedAt, type: timestamp }
+      - { name: status,   type: string,    length: 20, defaultValue: "PENDING" }  # PENDING -> ACTIVE/REJECTED via MemberApproval
     relations:
       - { name: loans, kind: oneToMany, to: Loan }                        # master's detail collection
 
@@ -60,11 +61,39 @@ processes:
       - name: done
         kind: end
 
+  - name: MemberApproval
+    trigger: { onCreate: Member }   # registering a Member starts the approval flow
+    steps:
+      - name: librarianReview
+        kind: userTask
+        args: { assignee: librarian, form: ApproveMember }
+      - name: approved
+        kind: decision
+        # the ApproveMember form completes the task with the chosen action ('approve'/'reject')
+        # as a process variable - branch on it.
+        args: { if: "action == 'approve'", then: activate, else: reject }
+      - name: activate
+        kind: serviceTask
+        # declarative glue, no custom Java: set Member.status = ACTIVE (so the member can make Loans),
+        # then jump to `done` so the approve branch doesn't fall through into reject.
+        args: { setField: status, value: ACTIVE, next: done }
+      - name: reject
+        kind: serviceTask
+        args: { setField: status, value: REJECTED }   # declarative glue: set Member.status = REJECTED
+      - name: done
+        kind: end
+
 forms:
   - name: ApproveLoan
     forEntity: Loan
     description: Approve or reject a loan request
     fields: [loanedOn, dueOn, book.title, book.price]
+    actions: [approve, reject]
+
+  - name: ApproveMember
+    forEntity: Member
+    description: Approve or reject a new member registration
+    fields: [name, email, joinedAt, status]
     actions: [approve, reject]
 
 reports:
@@ -75,7 +104,7 @@ reports:
     filter: "dueOn <= CURRENT_DATE"
 
 permissions:
-  - { role: Librarian, description: Library staff, can: [Book:read, Book:write, Loan:create] }
+  - { role: Librarian, description: Library staff, can: [Book:read, Book:write, Loan:create, Member:read, Member:approve] }
   - { role: Curator,   description: Rare books curator, can: [Loan:approve] }
 
 seeds:
