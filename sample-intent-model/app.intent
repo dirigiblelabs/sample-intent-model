@@ -60,6 +60,11 @@ processes:
       - name: curatorReview
         kind: userTask
         args: { assignee: curator, form: ApproveLoan }
+      - name: curatorDecision
+        kind: decision
+        # ApproveLoan completes the task with the chosen action; a multi-option task must branch on it
+        # via a decision. Approve -> notify the member; reject -> end.
+        args: { if: "action == 'approve'", then: notifyMember, else: done }
       - name: notifyMember
         kind: serviceTask   # no `call` -> a Java handler stub is scaffolded once at custom/NotifyMember.java
       - name: done
